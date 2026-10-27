@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recibo de luz y agua</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d2430;--mut:#667085;--line:#dcd8cf;--luz:#b7791f;--agua:#1f6f9f;--ok:#1f6f4a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181f;--card:#1c222c;--ink:#eef1f5;--mut:#9aa4b2;--line:#2e3644;--luz:#f0b648;--agua:#5bb4e5;--ok:#58c38d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14181f;--card:#1c222c;--ink:#eef1f5;--mut:#9aa4b2;--line:#2e3644;--luz:#f0b648;--agua:#5bb4e5;--ok:#58c38d;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 18px;font-size:.95rem}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+section.luz{border-left:6px solid var(--luz)}
+section.agua{border-left:6px solid var(--agua)}
+h2{font-size:1.1rem;margin:0 0 12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+label{display:block;font-size:.85rem;color:var(--mut);margin-bottom:4px}
+input{width:100%;font:inherit;font-size:1.05rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus{outline:2px solid var(--ink);outline-offset:1px}
+.res{display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+.res span{color:var(--mut);font-size:.9rem}
+.monto{font-size:1.5rem;font-weight:700}
+.luz .monto{color:var(--luz)}.agua .monto{color:var(--agua)}
+.err{color:#c0392b;font-size:.85rem;min-height:1.1em;margin:0 0 6px}
+.total{background:var(--ink);color:var(--bg);border-radius:14px;padding:18px;display:flex;justify-content:space-between;align-items:baseline}
+.total b{font-size:2rem}
+button{margin-top:12px;width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Recibo del mes</h1>
+  <p class="sub">Ingresa la lectura inicial y final. Puedes cambiar el precio por unidad cuando quieras.</p>
+
+  <section class="luz">
+    <h2>Luz (kWh)</h2>
+    <div class="row">
+      <div><label for="li">Lectura inicial</label><input id="li" type="number" inputmode="decimal" min="0" step="any"></div>
+      <div><label for="lf">Lectura final</label><input id="lf" type="number" inputmode="decimal" min="0" step="any"></div>
+    </div>
+    <div class="row">
+      <div><label for="lt">Precio por kWh (S/)</label><input id="lt" type="number" inputmode="decimal" min="0" step="any" value="1.5"></div>
+      <div><label>Consumo</label><input id="lc" readonly value="0 kWh" tabindex="-1"></div>
+    </div>
+    <p class="err" id="le"></p>
+    <div class="res"><span>Monto de luz</span><div class="monto" id="lm">S/ 0.00</div></div>
+  </section>
+
+  <section class="agua">
+    <h2>Agua (m³)</h2>
+    <div class="row">
+      <div><label for="ai">Lectura inicial</label><input id="ai" type="number" inputmode="decimal" min="0" step="any"></div>
+      <div><label for="af">Lectura final</label><input id="af" type="number" inputmode="decimal" min="0" step="any"></div>
+    </div>
+    <div class="row">
+      <div><label for="at">Precio por m³ (S/)</label><input id="at" type="number" inputmode="decimal" min="0" step="any" value="5"></div>
+      <div><label>Consumo</label><input id="ac" readonly value="0 m³" tabindex="-1"></div>
+    </div>
+    <p class="err" id="ae"></p>
+    <div class="res"><span>Monto de agua</span><div class="monto" id="am">S/ 0.00</div></div>
+  </section>
+
+  <div class="total"><span>Total a pagar</span><b id="tt">S/ 0.00</b></div>
+  <button id="clr" type="button">Limpiar lecturas</button>
+</main>
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var KEY="recibos_tarifas";
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({l:$("lt").value,a:$("at").value}))}catch(e){}}
+  function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){if(d.l!=="")$("lt").value=d.l;if(d.a!=="")$("at").value=d.a}}catch(e){}}
+  function n(v){var x=parseFloat(v);return isNaN(x)?0:x}
+  function money(x){return "S/ "+x.toFixed(2)}
+  function calc(p,unit){
+    var i=$(p+"i").value,f=$(p+"f").value,t=n($(p+"t").value);
+    var cons=0,msg="";
+    if(i!==""&&f!==""){
+      cons=n(f)-n(i);
+      if(cons<0){msg="La lectura final no puede ser menor que la inicial.";cons=0}
+    }
+    $(p+"c").value=(Math.round(cons*100)/100)+" "+unit;
+    $(p+"e").textContent=msg;
+    var m=cons*t;
+    $(p+"m").textContent=money(m);
+    return m;
+  }
+  function run(){
+    var total=calc("l","kWh")+calc("a","m³");
+    $("tt").textContent=money(total);
+    save();
+  }
+  ["li","lf","lt","ai","af","at"].forEach(function(id){$(id).addEventListener("input",run)});
+  $("clr").addEventListener("click",function(){["li","lf","ai","af"].forEach(function(id){$(id).value=""});run()});
+  load();run();
+})();
+</script>
+</body>
+</html>
